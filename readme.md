@@ -19,3 +19,5 @@ The aim of Friday is to act as an intelligent conversational partner capable of:
 4. Providing explanations for technical and theoretical topics.
 
 _Since Friday relies on LLM APIs, it doesn’t require training its own AI models; instead, it focuses on effective API integration, context management, and clean UI/UX for end users._
+
+This makes Friday an ideal lightweight solution for quickly deploying a smart assistant without the complexity of building and maintaining custom machine learning models.
