@@ -168,4 +168,31 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// GET ALL USERS
+router.get("/", async (req, res) => {
+  try {
+    const users = await User.find(
+      {},
+      { username: 1, email: 1, preferences: 1, createdAt: 1 }
+    );
+
+    res.json({
+      success: true,
+      users: users.map((user) => ({
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        preferences: user.preferences,
+        createdAt: user.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
 module.exports = router;
