@@ -32,6 +32,19 @@ class AIService {
     const prompt = `Example: ${example.query}\nResponse: ${example.response}\n\nUser: ${userQuery}\nAssistant:`;
     return this.zeroShotPrompt(prompt);
   }
+
+  // Multi-shot prompting
+  async multiShotPrompt(userQuery, examples) {
+    let prompt = "Here are some examples:\n\n";
+    examples.forEach((ex, index) => {
+      prompt += `Example ${index + 1}:\nQuery: ${ex.query}\nResponse: ${
+        ex.response
+      }\n\n`;
+    });
+    prompt += `Now respond to this query: ${userQuery}`;
+
+    return this.zeroShotPrompt(prompt);
+  }
 }
 
 module.exports = new AIService();
