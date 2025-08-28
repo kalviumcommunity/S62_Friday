@@ -195,4 +195,84 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Check if user exists
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    // Validate username/email uniqueness if being updated
+    if (updates.username && updates.username !== user.username) {
+      const existingUsername = await User.findOne({
+        username: updates.username,
+        _id: { $ne: id },
+      });
+      if (existingUsername) {
+        return res.status(400).json({
+          success: false,
+          error: "Username already taken",
+        });
+      }
+    }
+
+    if (updates.email && updates.email !== user.email) {
+      const existingEmail = await User.findOne({
+        email: updates.email,
+        _id: { $ne: id },
+      });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "Email already registered",
+        });
+      }
+    }
+
+    // Apply updates
+    Object.keys(updates).forEach((key) => {
+      if (key === "preferences") {
+        user.preferences = { ...user.preferences, ...updates.preferences };
+      } else if (key !== "id" && key !== "_id") {
+        user[key] = updates[key];
+      }
+    });
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        preferences: user.preferences,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        success: false,
+        error: errors.join(", "),
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
 module.exports = router;
