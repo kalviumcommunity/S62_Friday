@@ -45,6 +45,12 @@ class AIService {
 
     return this.zeroShotPrompt(prompt);
   }
+
+  // Chain of thought prompting
+  async chainOfThoughtPrompt(problem) {
+    const prompt = `Let's think step by step to solve this problem: ${problem}\nFirst, I need to understand what's being asked...`;
+    return this.zeroShotPrompt(prompt);
+  }
 }
 
 module.exports = new AIService();
