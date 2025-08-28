@@ -51,6 +51,12 @@ class AIService {
     const prompt = `Let's think step by step to solve this problem: ${problem}\nFirst, I need to understand what's being asked...`;
     return this.zeroShotPrompt(prompt);
   }
+
+  // Dynamic prompting
+  async dynamicPrompt(userQuery, context) {
+    const prompt = `Context: ${context}\nBased on the above context, please respond to: ${userQuery}`;
+    return this.zeroShotPrompt(prompt);
+  }
 }
 
 module.exports = new AIService();
