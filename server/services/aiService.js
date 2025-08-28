@@ -57,6 +57,19 @@ class AIService {
     const prompt = `Context: ${context}\nBased on the above context, please respond to: ${userQuery}`;
     return this.zeroShotPrompt(prompt);
   }
+
+  // Temperature control (simulated for Gemini)
+  async temperatureControlledPrompt(prompt, temperature = 0.7) {
+    const creativityLevel =
+      temperature > 0.7
+        ? "Be creative and imaginative."
+        : temperature > 0.4
+        ? "Be balanced in your response."
+        : "Be precise and factual.";
+
+    const modifiedPrompt = `${creativityLevel} ${prompt}`;
+    return this.zeroShotPrompt(modifiedPrompt);
+  }
 }
 
 module.exports = new AIService();
