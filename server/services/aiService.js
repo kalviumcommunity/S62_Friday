@@ -26,6 +26,12 @@ class AIService {
     const prompt = `You are a ${systemRole}. ${userQuery}`;
     return this.zeroShotPrompt(prompt);
   }
+
+  // One-shot prompting
+  async oneShotPrompt(userQuery, example) {
+    const prompt = `Example: ${example.query}\nResponse: ${example.response}\n\nUser: ${userQuery}\nAssistant:`;
+    return this.zeroShotPrompt(prompt);
+  }
 }
 
 module.exports = new AIService();
