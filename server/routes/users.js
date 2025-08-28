@@ -89,4 +89,83 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
+// UPDATE USER - PUT route
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, email, preferences } = req.body;
+
+    // Check if user exists
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    // Check if new username or email already exists (excluding current user)
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({
+        username,
+        _id: { $ne: id },
+      });
+      if (existingUsername) {
+        return res.status(400).json({
+          success: false,
+          error: "Username already taken",
+        });
+      }
+    }
+
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({
+        email,
+        _id: { $ne: id },
+      });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "Email already registered",
+        });
+      }
+    }
+
+    // Update user fields
+    if (username) user.username = username;
+    if (email) user.email = email;
+    if (preferences) {
+      user.preferences = { ...user.preferences, ...preferences };
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        preferences: user.preferences,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        success: false,
+        error: errors.join(", "),
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
 module.exports = router;
