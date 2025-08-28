@@ -1,11 +1,27 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User.js");
+const { generateToken, authenticateToken } = require("../middleware/auth.js");
 
-// Create a new user
+// Register new user
 router.post("/register", async (req, res) => {
   try {
-    const { username, email, preferences } = req.body;
+    const { username, email, password, preferences } = req.body;
+
+    // Validation
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Username, email, and password are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 6 characters long",
+      });
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -23,14 +39,19 @@ router.post("/register", async (req, res) => {
     const user = new User({
       username,
       email,
+      password,
       preferences: preferences || {},
     });
 
     await user.save();
 
+    // Generate token
+    const token = generateToken(user._id);
+
     res.status(201).json({
       success: true,
       message: "User created successfully",
+      token,
       user: {
         id: user._id,
         username: user.username,
@@ -56,13 +77,82 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// Get user by ID
-router.get("/:userId", async (req, res) => {
+// Login user
+router.post("/login", async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { email, password } = req.body;
 
-    const user = await User.findById(userId);
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required",
+      });
+    }
 
+    // Find user and include password field
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password",
+      });
+    }
+
+    // Check password
+    const isPasswordValid = await user.comparePassword(password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password",
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        preferences: user.preferences,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
+// Get current user profile (protected route)
+router.get("/profile", authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      user: req.user,
+    });
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
+// Get user by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -77,7 +167,6 @@ router.get("/:userId", async (req, res) => {
         username: user.username,
         email: user.email,
         preferences: user.preferences,
-        createdAt: user.createdAt,
       },
     });
   } catch (error) {
@@ -89,11 +178,11 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
-// UPDATE USER - PUT route
-router.put("/:id", async (req, res) => {
+// UPDATE USER - PUT route (complete replacement)
+router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, email, preferences } = req.body;
+    const { username, email, password, preferences } = req.body;
 
     // Check if user exists
     const user = await User.findById(id);
@@ -104,7 +193,15 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    // Check if new username or email already exists (excluding current user)
+    // Check if user is updating their own profile
+    if (req.user._id.toString() !== id) {
+      return res.status(403).json({
+        success: false,
+        error: "You can only update your own profile",
+      });
+    }
+
+    // Check if new username or email already exists
     if (username && username !== user.username) {
       const existingUsername = await User.findOne({
         username,
@@ -131,12 +228,11 @@ router.put("/:id", async (req, res) => {
       }
     }
 
-    // Update user fields
-    if (username) user.username = username;
-    if (email) user.email = email;
-    if (preferences) {
-      user.preferences = { ...user.preferences, ...preferences };
-    }
+    // Update user fields (complete replacement)
+    user.username = username || user.username;
+    user.email = email || user.email;
+    if (password) user.password = password; // Will be hashed by pre-save hook
+    user.preferences = preferences || user.preferences;
 
     await user.save();
 
@@ -168,34 +264,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// GET ALL USERS
-router.get("/", async (req, res) => {
-  try {
-    const users = await User.find(
-      {},
-      { username: 1, email: 1, preferences: 1, createdAt: 1 }
-    );
-
-    res.json({
-      success: true,
-      users: users.map((user) => ({
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        preferences: user.preferences,
-        createdAt: user.createdAt,
-      })),
-    });
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({
-      success: false,
-      error: "Internal server error",
-    });
-  }
-});
-
-router.patch("/:id", async (req, res) => {
+// PARTIAL UPDATE USER - PATCH route (partial updates only)
+router.patch("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -206,6 +276,14 @@ router.patch("/:id", async (req, res) => {
       return res.status(404).json({
         success: false,
         error: "User not found",
+      });
+    }
+
+    // Check if user is updating their own profile
+    if (req.user._id.toString() !== id) {
+      return res.status(403).json({
+        success: false,
+        error: "You can only update your own profile",
       });
     }
 
@@ -236,10 +314,12 @@ router.patch("/:id", async (req, res) => {
       }
     }
 
-    // Apply updates
+    // Apply updates (only the fields that are provided)
     Object.keys(updates).forEach((key) => {
       if (key === "preferences") {
         user.preferences = { ...user.preferences, ...updates.preferences };
+      } else if (key === "password") {
+        user.password = updates.password; // Will be hashed by pre-save hook
       } else if (key !== "id" && key !== "_id") {
         user[key] = updates[key];
       }
@@ -268,6 +348,82 @@ router.patch("/:id", async (req, res) => {
       });
     }
 
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
+// GET ALL USERS (for admin purposes - protected)
+router.get("/", authenticateToken, async (req, res) => {
+  try {
+    const users = await User.find(
+      {},
+      { username: 1, email: 1, preferences: 1, createdAt: 1 }
+    );
+
+    res.json({
+      success: true,
+      users: users.map((user) => ({
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        preferences: user.preferences,
+        createdAt: user.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+});
+
+// Change password endpoint
+router.post("/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Current password and new password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "New password must be at least 6 characters long",
+      });
+    }
+
+    // Get user with password
+    const user = await User.findById(userId).select("+password");
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        error: "Current password is incorrect",
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Error changing password:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",
