@@ -70,6 +70,17 @@ class AIService {
     const modifiedPrompt = `${creativityLevel} ${prompt}`;
     return this.zeroShotPrompt(modifiedPrompt);
   }
+
+  // Top-P sampling (simulated for Gemini)
+  async topPPrompt(prompt, topP = 0.9) {
+    const diversityLevel =
+      topP > 0.8
+        ? "Provide diverse perspectives."
+        : "Focus on the most relevant information.";
+
+    const modifiedPrompt = `${diversityLevel} ${prompt}`;
+    return this.zeroShotPrompt(modifiedPrompt);
+  }
 }
 
 module.exports = new AIService();
