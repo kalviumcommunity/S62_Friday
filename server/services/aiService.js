@@ -81,6 +81,19 @@ class AIService {
     const modifiedPrompt = `${diversityLevel} ${prompt}`;
     return this.zeroShotPrompt(modifiedPrompt);
   }
+
+  // Stop sequences
+  async stopSequencePrompt(prompt, stopSequence) {
+    const result = await this.model.generateContent(prompt);
+    let text = (await result.response).text();
+
+    // Manually implement stop sequence
+    if (stopSequence && text.includes(stopSequence)) {
+      text = text.split(stopSequence)[0];
+    }
+
+    return text;
+  }
 }
 
 module.exports = new AIService();
