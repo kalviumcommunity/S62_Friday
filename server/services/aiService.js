@@ -20,6 +20,12 @@ class AIService {
       throw err;
     }
   }
+
+  // System and user prompts (RTFC framework)
+  async systemUserPrompt(userQuery, systemRole = "helpful assistant") {
+    const prompt = `You are a ${systemRole}. ${userQuery}`;
+    return this.zeroShotPrompt(prompt);
+  }
 }
 
 module.exports = new AIService();
